@@ -1,95 +1,71 @@
-# Impact of Latitude on European Electricity Prices
+# Energy Pricing — Modular Time-Series ML Project
 
-This repository contains a data‑driven analysis of how geographic latitude influences day‑ahead wholesale electricity prices across 18 European market zones. Using publicly available EPEX SPOT data (January 2021 – June 2025), we demonstrate that latitude is the strongest predictor of price variation and build a Random Forest regression model to quantify its effect.
+A reproducible pipeline for exploring and modelling hourly electricity prices across European bidding zones.
 
-![Top 10 Feature Importances](energy_price_latitude.png)
+## Data source
 
-## Table of Contents
+The modelling pipeline reads **only** the locally merged CSV:
 
-1. [Project Overview](#project-overview)  
-2. [Data Collection](#data-collection)  
-3. [Data Preparation](#data-preparation)  
-4. [Modeling Approach](#modeling-approach)  
-5. [Key Results](#key-results)  
-6. [How to Run](#how-to-run)  
-7. [References](#references)  
+`D:\projects\energy_elec_anal\data\raw\energy_price_merged_data.csv`
 
----
+There is deliberately no automatic web download or remote fallback. If the file is missing, the pipeline stops with an actionable error. The raw source data are not included in this repository.
 
-## Project Overview
+## Project layout
 
-Electricity spot prices vary widely across Europe due to differences in generation mix, grid interconnectivity, and weather patterns. We use Python (pandas, scikit‑learn, matplotlib) to:
+```text
+energy_pricing/
+├── config/config.yaml
+├── data/README.md
+├── notebooks/                 # exploratory work only
+├── reports/figures/
+├── reports/tables/
+├── scripts/train.py
+├── scripts/evaluate.py
+├── src/energy_pricing/
+│   ├── config.py
+│   ├── data_loader.py
+│   ├── data_validation.py
+│   ├── preprocessing.py
+│   ├── features.py
+│   ├── models.py
+│   ├── evaluation.py
+│   ├── visualization.py
+│   └── pipeline.py
+├── tests/
+├── requirements.txt
+└── pyproject.toml
+```
 
-- Download and merge hourly day‑ahead price CSVs for 18 zones  
-- Transform the data from wide (24 columns for hours) to long format  
-- Append each zone’s central latitude  
-- Train a Random Forest regressor to predict price from latitude and hour‑of‑day  
-- Evaluate model performance and extract feature importances  
+## Setup (Windows PowerShell)
 
----
+```powershell
+cd D:\projects\energy_pricing
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .
+```
 
-## Data Collection
+If you already have a working project virtual environment, activate that environment instead of creating another one.
 
-1. **Source**  
-   - Raw CSV files hosted on the EPEX‑Client GitHub repository:  
-     `https://raw.githubusercontent.com/tvanlaerhoven/epex-client/main/data/{ZONE}.csv`  
-   - 18 zones (e.g., AT, BE, CH, NO4, etc.) covering January 2021 through June 2025.
+## Run
 
-2. **Download Logic**  
-   - Each file is downloaded only if not already present locally.  
-   - Files are saved under `data/raw/` to avoid repeated downloads.  
-   - After loading, a `Country` column is added and all dataframes are concatenated into `energy_price_merged_data.csv`.
+```powershell
+python scripts\train.py
+```
 
----
+To evaluate the saved model against the held-out chronological test set, the pipeline writes `reports/tables/metrics.csv` and `reports/tables/test_predictions.csv`. Figures are saved under `reports/figures/`.
 
-## Data Preparation
+## Methodology
 
-1. **Wide → Long Transformation**  
-   - Original files have 24 separate columns for each hour (e.g., `00-01`, `01-02`, …).  
-   - We melt these into a single `Price` column with an `Hour` identifier.
+- Accepts the original merged wide format (one row per date and zone, hourly columns such as `00-01`) and a long format (`Date`, `Country`, `Hour`, `Price`).
+- Validates required fields, dates, numeric prices, zone coverage and duplicate zone-hour timestamps.
+- Uses cyclic hour features (`hour_sin`, `hour_cos`) and zone latitude. These are intentionally a simple baseline, not a full forecasting system.
+- Splits by time, not randomly, to reduce time-series leakage. The latest 30% of unique timestamps are held out.
+- Compares a median baseline with Random Forest and reports MAE, RMSE and R².
+- Feature importance is descriptive, not causal. Latitude/hour-only features cannot capture lagged prices, weather, fuel prices, demand, or cross-border effects.
 
-2. **Datetime Construction**  
-   - Extract the hour (`"HH"`) from each column name and append `":00"` to build a time string.  
-   - Combine `Date` and `Hour` into a unified `datetime` column of type `pd.Timestamp`.
+## Important limitations
 
-3. **Latitude Mapping**  
-   - A dictionary maps each zone code to its central latitude (e.g., `"FR": 46.2`, `"NO4": 65.0`).  
-   - The latitude feature is crucial for understanding geographic effects.
-
-4. **One‑Hot Encoding**  
-   - Create dummy variables for the 24 hours of day, dropping the first to avoid multicollinearity.
-
----
-
-## Modeling Approach
-
-- **Train/Test Split**  
-  - 70% training, 30% testing, random seed = 42.
-- **Random Forest Regressor**  
-  - 100 trees, maximum depth = 10, parallel jobs enabled.
-- **Evaluation Metrics**  
-  - Coefficient of determination ($R^2$)  
-  - Mean Absolute Error (MAE)
-For access to the full article, please visit:
-## Impact of Latitude on European Electricity Prices: A Data-Driven Analysis
-For more details, please refer to the article below.
-**July 2025**  
-**URL:** [Impact of Latitude on European Electricity Prices: A Data-Driven Analysis](http://dx.doi.org/10.13140/RG.2.2.31353.17760)  
-**License:** CC BY 4.0
-
-
-```python
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
-
-rf = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42, n_jobs=-1)
-rf.fit(X_train, y_train)
-
-y_pred = rf.predict(X_test)
-print(f"R²: {r2_score(y_test, y_pred):.3f}")
-print(f"MAE: {mean_absolute_error(y_test, y_pred):.2f} EUR/MWh")
-'''
-
-
-
-
+This package has been created from the supplied notebook structure, but it has **not been run against the CSV on your Windows machine**. Check the input schema and generated metrics after running. Daylight-saving-time days and market-specific 23/25-hour days need an explicit policy before claiming fully validated hourly forecasting results.

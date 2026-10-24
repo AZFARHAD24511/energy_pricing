@@ -1,0 +1,14 @@
+data:
+  merged_csv: "D:/projects/energy_elec_anal/data/raw/energy_price_merged_data.csv"
+  date_column: "Date"
+  zone_column: "Country"
+  price_column: "Price"
+model:
+  test_fraction: 0.30
+  random_state: 42
+  n_estimators: 300
+  max_depth: 12
+  n_jobs: -1
+outputs:
+  reports_dir: "reports"
+  model_path: "reports/energy_price_random_forest.joblib"

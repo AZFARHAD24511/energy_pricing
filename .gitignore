@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+data/raw/
+*.joblib
+reports/figures/*.png
+reports/tables/*.csv
+!reports/figures/.gitkeep
+!reports/tables/.gitkeep
+
+*.egg-info/
